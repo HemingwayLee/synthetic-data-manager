@@ -1,0 +1,43 @@
+# Optional database browser (pgweb), run as its own compose project on the main stack's network.
+#
+#   docker compose -f docker-compose.dev.yml up -d      # main stack first: it creates the network
+#   docker compose -f docker-compose.pgweb.yml up -d    # then pgweb at http://localhost:8081
+#   docker compose -f docker-compose.pgweb.yml down     # stop pgweb only; the apps keep running
+#
+# PGWEB_VIA_HTTPS=true (in .env) also serves it at https://<host>/pgweb/ through the main nginx. That port is open to
+# the network, so set PGWEB_AUTH_USER / PGWEB_AUTH_PASS too unless you're only on your own machine.
+#
+# Connects as the Postgres superuser to the `postgres` database; switch to claudeGenData/app2 with pgweb's database menu.
+
+name: synthetic-data-manager-pgweb
+
+services:
+  pgweb:
+    image: sosedoff/pgweb:0.17.0
+    environment:
+      PGWEB_DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/postgres?sslmode=disable
+      # Optional HTTP basic auth (both ports). Empty = no login.
+      PGWEB_AUTH_USER: ${PGWEB_AUTH_USER:-}
+      PGWEB_AUTH_PASS: ${PGWEB_AUTH_PASS:-}
+    # The db lives in the other project, so there's no depends_on: retry until it accepts connections.
+    restart: unless-stopped
+
+  # Serves pgweb with our additions (tools/pgweb/custom, e.g. JSON pretty-printing).
+  # Port 8081 is bound to localhost because pgweb has no login by default. Port 8082 isn't published: the main
+  # nginx uses it for https://<host>/pgweb/, and it only answers when PGWEB_VIA_HTTPS=true.
+  pgweb-proxy:
+    image: nginx:1.30.6-alpine
+    environment:
+      PGWEB_VIA_HTTPS: ${PGWEB_VIA_HTTPS:-false}
+    ports:
+      - "127.0.0.1:${PGWEB_HOST_PORT:-8081}:8081"
+    volumes:
+      - ./tools/pgweb/templates:/etc/nginx/templates:ro
+      - ./tools/pgweb/custom:/usr/share/nginx/pgweb-custom:ro
+    depends_on:
+      - pgweb
+
+networks:
+  default:
+    name: synthetic-data-manager
+    external: true

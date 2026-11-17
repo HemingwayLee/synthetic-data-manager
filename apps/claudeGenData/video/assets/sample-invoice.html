@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><title>請求書</title>
+<style>
+@page { size: A4 portrait; margin: 18mm 16mm; }
+body { font-family: 'IPAexMincho', 'Noto Serif CJK JP', serif; font-size: 10pt; color: #111; }
+h1 { text-align: center; font-size: 22pt; letter-spacing: 1.2em; border-bottom: 3px double #111; padding-bottom: 4px; margin: 0 0 14px; }
+.top { display: flex; justify-content: space-between; }
+.meta { text-align: right; font-size: 9.5pt; }
+.meta table { border-collapse: collapse; margin-left: auto; }
+.meta td { border: 1px solid #333; padding: 2px 8px; }
+.to { font-size: 13pt; border-bottom: 1px solid #111; padding-bottom: 2px; width: 92mm; }
+.to small { font-size: 10pt; }
+.issuer { position: relative; width: 78mm; margin-top: 10px; font-size: 9.5pt; line-height: 1.55; }
+.issuer .name { font-size: 12pt; font-weight: bold; }
+.seal { position: absolute; right: 0; top: 2px; }
+.lead { margin: 14px 0 6px; }
+table.sum { border-collapse: collapse; width: 120mm; margin-bottom: 12px; }
+table.sum td { border: 1px solid #111; padding: 6px 10px; }
+table.sum td.l { background: #eee; width: 45mm; }
+table.sum td.v { text-align: right; font-size: 15pt; font-weight: bold; }
+table.items { border-collapse: collapse; width: 100%; margin-top: 6px; }
+table.items th, table.items td { border: 1px solid #111; padding: 5px 6px; }
+table.items th { background: #eee; font-weight: normal; }
+.r { text-align: right; } .c { text-align: center; }
+table.tot { border-collapse: collapse; width: 90mm; margin-left: auto; margin-top: -1px; }
+table.tot td { border: 1px solid #111; padding: 5px 8px; }
+table.tot td.l { background: #eee; }
+.box { border: 1px solid #111; padding: 8px 10px; margin-top: 12px; line-height: 1.6; }
+.box .t { font-weight: bold; border-bottom: 1px solid #999; margin-bottom: 4px; }
+</style></head><body>
+<h1>請求書</h1>
+<div class="top">
+ <div>
+  <div class="to">株式会社ハルカゼ食品<br><small>マーケティング部 部長　高槻 誠一 様</small></div>
+  <div style="font-size:9pt;margin-top:4px;">〒530-0001 大阪府大阪市北区梅田西町4-12-3 ハルカゼビル8階</div>
+ </div>
+ <div class="meta">
+  <table>
+   <tr><td>請求書番号</td><td>SR-2604-017</td></tr>
+   <tr><td>発行日</td><td>令和8年4月8日</td></tr>
+   <tr><td>お支払期限</td><td>令和8年5月8日</td></tr>
+  </table>
+  <div class="issuer" style="margin-left:auto;text-align:left;">
+   <div class="name">有限会社青嵐プランニング</div>
+   〒105-0004 東京都港区新橋六丁目21番8号<br>新橋スクエアヒルズ5階<br>
+   TEL 03-0472-3381　FAX 03-0472-3382<br>
+   担当：営業部 早瀬 遥<br>Mail：billing@example.com
+   <svg class="seal" width="64" height="64" viewBox="0 0 64 64">
+    <circle cx="32" cy="32" r="29" fill="none" stroke="#c8161d" stroke-width="2.5"/>
+    <circle cx="32" cy="32" r="24" fill="none" stroke="#c8161d" stroke-width="1"/>
+    <text x="32" y="22" font-size="8" fill="#c8161d" text-anchor="middle" font-family="'IPAexMincho', serif">有限会社</text>
+    <text x="32" y="35" font-size="9" fill="#c8161d" text-anchor="middle" font-family="'IPAexMincho', serif">青嵐</text>
+    <text x="32" y="47" font-size="7" fill="#c8161d" text-anchor="middle" font-family="'IPAexMincho', serif">プランニング</text>
+   </svg>
+  </div>
+ </div>
+</div>
+<p class="lead">下記のとおりご請求申し上げます。</p>
+<table class="sum">
+ <tr><td class="l">ご請求金額（差引）</td><td class="v">¥2,331,858-</td></tr>
+</table>
+<div style="font-size:9pt;">件名：春季新商品プロモーション広告制作業務（令和8年3月実施分）</div>
+<table class="items">
+ <tr><th style="width:8%">No.</th><th>品目・内容</th><th style="width:10%">数量</th><th style="width:8%">単位</th><th style="width:15%">単価（税込）</th><th style="width:16%">金額（税込）</th></tr>
+ <tr><td class="c">1</td><td>Web広告キャンペーン企画・運用代行（令和8年3月分）</td><td class="r">1</td><td class="c">式</td><td class="r">1,325,000</td><td class="r">1,325,000</td></tr>
+ <tr><td class="c">2</td><td>動画広告 撮影ディレクション ※</td><td class="r">1</td><td class="c">式</td><td class="r">880,000</td><td class="r">880,000</td></tr>
+ <tr><td class="c">3</td><td>ナレーション収録（30秒CM用）※</td><td class="r">2</td><td class="c">本</td><td class="r">115,500</td><td class="r">231,000</td></tr>
+</table>
+<table class="tot">
+ <tr><td class="l">合計（税込・10%対象）</td><td class="r">¥2,436,000</td></tr>
+ <tr><td class="l">（内消費税等 10%）</td><td class="r">¥221,454</td></tr>
+ <tr><td class="l">源泉徴収税額</td><td class="r">△¥104,142</td></tr>
+ <tr><td class="l"><b>差引ご請求金額</b></td><td class="r"><b>¥2,331,858</b></td></tr>
+</table>
+<div style="font-size:8.5pt;margin-top:4px;">※ 表示金額はすべて消費税込（税率10%）です。消費税額の1円未満の端数は切り捨てております。</div>
+<div class="box">
+ <div class="t">お振込先</div>
+ みなと中央銀行　汐留支店　普通預金　口座番号 3058172<br>
+ 口座名義：ユ）セイランプランニング<br>
+ お支払期限：令和8年5月8日（請求日から30日以内）までにお振込みください。<br>
+ 誠に恐れ入りますが、振込手数料は貴社にてご負担くださいますようお願い申し上げます。
+</div>
+<div class="box">
+ <div class="t">備考</div>
+ ・※印（No.2・No.3）は個人への報酬（ディレクター・ナレーター出演料）に該当するため、源泉所得税を差し引いております。<br>
+ 　対象額（税抜）1,010,000円：100万円まで10.21% 102,100円＋超過分10,000円×20.42% 2,042円＝104,142円<br>
+ ・本請求書に関するお問い合わせは、担当 早瀬までご連絡ください。
+</div>
+</body></html>

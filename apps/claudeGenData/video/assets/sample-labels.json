@@ -1,0 +1,117 @@
+{
+  "settings": {
+    "qualified_invoice": "区分記載請求書（登録番号なし）",
+    "issue_period": "直近1年",
+    "issuer_type": "有限会社",
+    "industry": "広告・メディア",
+    "recipient_type": "法人担当者（様）",
+    "item_count": "1〜3行",
+    "item_kind": "サービス・役務",
+    "amount_range": "100万〜1,000万円",
+    "tax_rates": "10%のみ",
+    "tax_display": "税込表示",
+    "rounding": "切り捨て",
+    "withholding": "あり（個人への報酬）",
+    "payment_terms": "請求日から30日以内",
+    "bank_details": "あり（振込手数料はお客様負担）",
+    "remarks": "あり",
+    "layout": "クラシック（罫線表）",
+    "date_format": "和暦（令和・平成）",
+    "number_style": "半角数字",
+    "font": "明朝体",
+    "seal": "丸印",
+    "planted_issues": [],
+    "extra_instructions": "",
+    "issue_date": "2026-04-08",
+    "registration_number": "T1450244977831"
+  },
+  "labels": {
+    "document_type": "請求書（区分記載請求書・登録番号なし）",
+    "issue_date": "2026-04-08",
+    "parties": [
+      {
+        "role": "発行者",
+        "name": "有限会社青嵐プランニング",
+        "address": "東京都港区新橋六丁目21番8号 新橋スクエアヒルズ5階"
+      },
+      {
+        "role": "宛先",
+        "name": "株式会社ハルカゼ食品 マーケティング部 部長　高槻 誠一 様",
+        "address": "大阪府大阪市北区梅田西町4-12-3 ハルカゼビル8階"
+      }
+    ],
+    "amounts": [
+      {
+        "label": "Web広告キャンペーン企画・運用代行（税込）",
+        "value": 1325000
+      },
+      {
+        "label": "動画広告 撮影ディレクション（税込）",
+        "value": 880000
+      },
+      {
+        "label": "ナレーション収録（税込）",
+        "value": 231000
+      },
+      {
+        "label": "合計（税込・10%対象）",
+        "value": 2436000
+      },
+      {
+        "label": "内消費税等 10%",
+        "value": 221454
+      },
+      {
+        "label": "源泉徴収対象額（税抜）",
+        "value": 1010000
+      },
+      {
+        "label": "源泉徴収税額",
+        "value": 104142
+      },
+      {
+        "label": "差引ご請求金額",
+        "value": 2331858
+      }
+    ],
+    "key_fields": [
+      {
+        "name": "請求書番号",
+        "value": "SR-2604-017"
+      },
+      {
+        "name": "お支払期限",
+        "value": "令和8年5月8日"
+      },
+      {
+        "name": "支払条件",
+        "value": "請求日から30日以内"
+      },
+      {
+        "name": "振込先",
+        "value": "みなと中央銀行　汐留支店　普通預金　口座番号 3058172"
+      },
+      {
+        "name": "口座名義",
+        "value": "ユ）セイランプランニング"
+      },
+      {
+        "name": "振込手数料",
+        "value": "貴社にてご負担"
+      },
+      {
+        "name": "件名",
+        "value": "春季新商品プロモーション広告制作業務（令和8年3月実施分）"
+      },
+      {
+        "name": "税率",
+        "value": "10%"
+      },
+      {
+        "name": "端数処理",
+        "value": "切り捨て"
+      }
+    ],
+    "planted_issues": []
+  }
+}

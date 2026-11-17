@@ -1,0 +1,179 @@
+# Dev stack: one Postgres, one nginx on 443, and N webapps (each a Vite frontend + FastAPI backend, both hot reloading).
+#
+#   https://localhost/        -> landing page (nginx/html)
+#   https://localhost/claudeGenData/ -> claudegendata-frontend:5101,  /claudeGenData/api/* -> claudegendata-backend:8101/api/*
+#   https://localhost/app2/          -> app2-frontend:5102,           /app2/api/*          -> app2-backend:8102/api/*
+#
+# To add a webapp: copy apps/app2, add its two services below, a database to APP_DATABASES, and nginx/apps/<name>.conf.
+
+x-backend-env: &backend-env
+  WATCHFILES_FORCE_POLLING: "true"
+
+x-frontend-env: &frontend-env
+  VITE_USE_POLLING: "true"
+
+services:
+  # ---------------------------------------------------------------- shared infrastructure
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: postgres
+    ports:
+      # Bound to localhost only; the apps reach it as db:5432 on the compose network.
+      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # Creates one database + one login role per webapp (idempotent, runs on every `up`), so adding an app later
+  # doesn't require wiping the volume. Each role can only connect to its own database.
+  db-init:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATABASE: postgres
+      # Space separated "database:password" pairs; the role name equals the database name.
+      APP_DATABASES: >-
+        claudeGenData:${CLAUDEGENDATA_DB_PASSWORD:-claudeGenData}
+        app2:${APP2_DB_PASSWORD:-app2}
+    volumes:
+      - ./db/create-databases.sh:/create-databases.sh:ro
+    command: ["sh", "/create-databases.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Makes a self-signed certificate for local HTTPS if nginx/certs has none. On a server, put real ones there
+  # (e.g. Let's Encrypt's fullchain.pem / privkey.pem) and this does nothing.
+  certs:
+    image: alpine:3.20
+    environment:
+      CERT_HOSTNAME: ${CERT_HOSTNAME:-localhost}
+    volumes:
+      - ./nginx/certs:/certs
+    command:
+      - sh
+      - -c
+      - |
+        if [ -s /certs/fullchain.pem ] && [ -s /certs/privkey.pem ]; then echo "certificate present"; exit 0; fi
+        apk add --no-cache openssl >/dev/null
+        openssl req -x509 -nodes -newkey rsa:2048 -days 825 \
+          -keyout /certs/privkey.pem -out /certs/fullchain.pem \
+          -subj "/CN=$${CERT_HOSTNAME}" \
+          -addext "subjectAltName=DNS:$${CERT_HOSTNAME},DNS:localhost,IP:127.0.0.1"
+        echo "self-signed certificate created for $${CERT_HOSTNAME}"
+
+  nginx:
+    image: nginx:1.30.6-alpine
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/apps:/etc/nginx/apps:ro
+      - ./nginx/html:/usr/share/nginx/html:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+
+  # ---------------------------------------------------------------- claudeGenData (Claude Code chat + Biz Doc generator)
+  claudegendata-backend:
+    build:
+      context: ./apps/claudeGenData/backend
+      dockerfile: Dockerfile.dev
+    environment:
+      <<: *backend-env
+      PORT: "8101"
+      APP_NAME: claudeGenData
+      ROOT_PATH: /claudeGenData
+      DATABASE_URL: postgresql+psycopg://claudeGenData:${CLAUDEGENDATA_DB_PASSWORD:-claudeGenData}@db:5432/claudeGenData
+      # Set one of these in .env: an OAuth token uses your Claude Pro/Max plan, an API key bills the API.
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_WORKSPACE: /workspace
+      # Keep Claude Code's session transcripts so conversations can resume after restarts.
+      CLAUDE_CONFIG_DIR: /claude-config
+    ports:
+      - "127.0.0.1:8101:8101"
+    volumes:
+      - ./apps/claudeGenData/backend:/app
+      # The directory Claude Code works in (reads, writes, runs commands).
+      - ./apps/claudeGenData/workspace:/workspace
+      # Generated business documents (PDF, HTML, labels.json), one folder per document.
+      - ./apps/claudeGenData/data:/data
+      - claudegendata-claude-config:/claude-config
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  claudegendata-frontend:
+    build:
+      context: ./apps/claudeGenData/frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      <<: *frontend-env
+      PORT: "5101"
+      BASE_PATH: /claudeGenData/
+      API_PROXY_TARGET: http://claudegendata-backend:8101
+    ports:
+      - "127.0.0.1:5101:5101"
+    volumes:
+      - ./apps/claudeGenData/frontend:/app
+      # Keep the container's node_modules instead of the (possibly empty) host one.
+      - /app/node_modules
+    depends_on:
+      - claudegendata-backend
+
+  # ---------------------------------------------------------------- app2
+  app2-backend:
+    build:
+      context: ./apps/app2/backend
+      dockerfile: Dockerfile.dev
+    environment:
+      <<: *backend-env
+      PORT: "8102"
+      APP_NAME: app2
+      ROOT_PATH: /app2
+      DATABASE_URL: postgresql+psycopg://app2:${APP2_DB_PASSWORD:-app2}@db:5432/app2
+    ports:
+      - "127.0.0.1:8102:8102"
+    volumes:
+      - ./apps/app2/backend:/app
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  app2-frontend:
+    build:
+      context: ./apps/app2/frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      <<: *frontend-env
+      PORT: "5102"
+      BASE_PATH: /app2/
+      API_PROXY_TARGET: http://app2-backend:8102
+    ports:
+      - "127.0.0.1:5102:5102"
+    volumes:
+      - ./apps/app2/frontend:/app
+      - /app/node_modules
+    depends_on:
+      - app2-backend
+
+volumes:
+  pgdata:
+  claudegendata-claude-config:
+
+networks:
+  # Fixed name so docker-compose.pgweb.yml (a separate project) can join it.
+  default:
+    name: synthetic-data-manager

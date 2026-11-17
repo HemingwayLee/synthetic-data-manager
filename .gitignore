@@ -221,3 +221,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node
+node_modules/
+
+# claudeGenData: Claude Code's workspace and generated business documents
+apps/claudeGenData/workspace/*
+!apps/claudeGenData/workspace/.gitkeep
+apps/claudeGenData/data/

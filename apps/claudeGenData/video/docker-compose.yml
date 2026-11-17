@@ -1,0 +1,20 @@
+# Records and renders the Japanese tutorial video. Narration is made beforehand on the Mac with `say`
+# (see make_video.sh). Start the app first (docker-compose.dev.yml at the repo root); the recorder
+# joins its network and opens the real frontend.
+name: claudegendata-video
+
+services:
+  video:
+    build: .
+    working_dir: /video
+    volumes:
+      - .:/video
+    environment:
+      APP_URL: http://claudegendata-frontend:5101/claudeGenData
+    networks:
+      - app
+
+networks:
+  app:
+    name: synthetic-data-manager
+    external: true

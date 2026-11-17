@@ -7,7 +7,7 @@
 # PGWEB_VIA_HTTPS=true (in .env) also serves it at https://<host>/pgweb/ through the main nginx. That port is open to
 # the network, so set PGWEB_AUTH_USER / PGWEB_AUTH_PASS too unless you're only on your own machine.
 #
-# Connects as the Postgres superuser to the `postgres` database; switch to claudeGenData/app2 with pgweb's database menu.
+# Connects as the Postgres superuser to the `postgres` database; switch to claudeGenData/randomHtmlTables with pgweb's database menu.
 
 name: synthetic-data-manager-pgweb
 

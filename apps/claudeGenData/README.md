@@ -63,6 +63,13 @@ The **Biz Doc** tab generates fictional 契約書, 請求書, 見積書 and 領�
    picked separately for each one. **Cancel queued** on Results stops documents that haven't started yet.
 
 Each document is saved to `apps/claudeGenData/data/bizdoc/<type>/<id>/` as `document.pdf`, `document.html` and `labels.json`.
+
+When the last document of a batch finishes (done, failed or cancelled), the batch's finished documents are
+packed into `data/exports/<unix seconds>.tar.gz`: `<id>/document.pdf`, `<id>/document.html` and `<id>/labels.json`
+for each, plus a `manifest.json` with every document's settings and labels and a list of the ones left out. A
+batch where nothing succeeded gets no archive. `GET /api/bizdoc/batches/{id}` shows a batch's status and its
+archive's timestamp (`export`); see [Batch archives](../../README.md#batch-archives-for-other-systems) for the API.
+Single documents (Generate) aren't archived.
 Up to 2 documents generate at once (`BIZDOC_CONCURRENCY`); jobs running when the backend restarts (including
 a hot reload from editing backend code) are marked failed.
 

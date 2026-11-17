@@ -2,7 +2,7 @@
 #
 #   https://localhost/        -> landing page (nginx/html)
 #   https://localhost/claudeGenData/ -> claudegendata-frontend:5101,  /claudeGenData/api/* -> claudegendata-backend:8101/api/*
-#   https://localhost/app2/          -> app2-frontend:5102,           /app2/api/*          -> app2-backend:8102/api/*  (random-table2image)
+#   https://localhost/randomHtmlTables/ -> randomhtmltables-frontend:5102, /randomHtmlTables/api/* -> randomhtmltables-backend:8102/api/*
 #
 # To add a webapp: copy the template (see README, "Add a webapp"), add its two services below, a database to APP_DATABASES, and nginx/apps/<name>.conf.
 
@@ -43,7 +43,7 @@ services:
       # Space separated "database:password" pairs; the role name equals the database name.
       APP_DATABASES: >-
         claudeGenData:${CLAUDEGENDATA_DB_PASSWORD:-claudeGenData}
-        app2:${APP2_DB_PASSWORD:-app2}
+        randomHtmlTables:${RANDOMHTMLTABLES_DB_PASSWORD:-randomHtmlTables}
     volumes:
       - ./db/create-databases.sh:/create-databases.sh:ro
     command: ["sh", "/create-databases.sh"]
@@ -133,55 +133,55 @@ services:
     depends_on:
       - claudegendata-backend
 
-  # ---------------------------------------------------------------- app2 (random-table2image: table images + LaMa masks)
-  app2-backend:
+  # ---------------------------------------------------------------- randomHtmlTables (table images + LaMa masks)
+  randomhtmltables-backend:
     build:
-      context: ./apps/app2/backend
+      context: ./apps/randomHtmlTables/backend
       dockerfile: Dockerfile.dev
       # core/package*.json, so the generator's Node dependencies are installed in the image.
       additional_contexts:
-        generator: ./apps/app2/core
+        generator: ./apps/randomHtmlTables/core
     environment:
       <<: *backend-env
       PORT: "8102"
-      APP_NAME: app2
-      ROOT_PATH: /app2
-      DATABASE_URL: postgresql+psycopg://app2:${APP2_DB_PASSWORD:-app2}@db:5432/app2
+      APP_NAME: randomHtmlTables
+      ROOT_PATH: /randomHtmlTables
+      DATABASE_URL: postgresql+psycopg://randomHtmlTables:${RANDOMHTMLTABLES_DB_PASSWORD:-randomHtmlTables}@db:5432/randomHtmlTables
       GENERATE_SCRIPT: /generator/generate.sh
       OUTPUT_DIR: /output
-      MAX_COUNT: ${APP2_MAX_COUNT:-100000}
-      MAX_CONCURRENT_RUNS: ${APP2_MAX_CONCURRENT_RUNS:-2}
+      MAX_COUNT: ${RANDOMHTMLTABLES_MAX_COUNT:-100000}
+      MAX_CONCURRENT_RUNS: ${RANDOMHTMLTABLES_MAX_CONCURRENT_RUNS:-2}
     ports:
       - "127.0.0.1:8102:8102"
     volumes:
-      - ./apps/app2/backend:/app
+      - ./apps/randomHtmlTables/backend:/app
       # The generator itself. Each run starts a new generate.sh, so edits to it or core/ apply to the next run.
-      - ./apps/app2/generate.sh:/generator/generate.sh:ro
-      - ./apps/app2/core:/generator/core
+      - ./apps/randomHtmlTables/generate.sh:/generator/generate.sh:ro
+      - ./apps/randomHtmlTables/core:/generator/core
       # Keep the image's node_modules instead of the (possibly missing) host one.
       - /generator/core/node_modules
-      # Generated datasets land in apps/app2/output/<run id>/ on your machine.
-      - ./apps/app2/output:/output
+      # Generated datasets land in apps/randomHtmlTables/output/<run id>/ on your machine.
+      - ./apps/randomHtmlTables/output:/output
     depends_on:
       db-init:
         condition: service_completed_successfully
 
-  app2-frontend:
+  randomhtmltables-frontend:
     build:
-      context: ./apps/app2/frontend
+      context: ./apps/randomHtmlTables/frontend
       dockerfile: Dockerfile.dev
     environment:
       <<: *frontend-env
       PORT: "5102"
-      BASE_PATH: /app2/
-      API_PROXY_TARGET: http://app2-backend:8102
+      BASE_PATH: /randomHtmlTables/
+      API_PROXY_TARGET: http://randomhtmltables-backend:8102
     ports:
       - "127.0.0.1:5102:5102"
     volumes:
-      - ./apps/app2/frontend:/app
+      - ./apps/randomHtmlTables/frontend:/app
       - /app/node_modules
     depends_on:
-      - app2-backend
+      - randomhtmltables-backend
 
 volumes:
   pgdata:

@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # Business document generation
     bizdoc_data_dir: str = "/data/bizdoc"
     bizdoc_concurrency: int = 2
+    # Each finished batch is packed into <exports_dir>/<unix seconds>.tar.gz for other systems (see app/exports.py).
+    exports_dir: str = "/data/exports"
 
 
 settings = Settings()

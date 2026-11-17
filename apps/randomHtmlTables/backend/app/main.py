@@ -1,6 +1,5 @@
 import logging
 import os
-import re
 import tempfile
 import zipfile
 from contextlib import asynccontextmanager
@@ -11,13 +10,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app import runs
+from app import exports, runs
 from app.config import settings
 from app.db import get_db
 
 logger = logging.getLogger(__name__)
-
-FILE_RE = re.compile(r"^table_[0-9]+(_mask001)?\.png$")
 
 
 @asynccontextmanager
@@ -29,14 +26,15 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title=f"{settings.app_name} API (random-table2image)",
+    title=f"{settings.app_name} API (randomHtmlTables)",
     root_path=settings.root_path,
-    # Everything lives under /api so nginx can route /app2/api/* here and the rest to the frontend.
+    # Everything lives under /api so nginx can route /randomHtmlTables/api/* here and the rest to the frontend.
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     redoc_url=None,
     lifespan=lifespan,
 )
+app.include_router(exports.router)
 
 
 class RunCreate(BaseModel):
@@ -104,7 +102,7 @@ def list_pairs(run_id: str, offset: int = Query(0, ge=0), limit: int = Query(24,
 def get_file(run_id: str, name: str):
     _get(run_id)
     path = runs.run_dir(run_id) / name
-    if not FILE_RE.match(name) or not path.is_file():
+    if not runs.FILE_RE.match(name) or not path.is_file():
         raise HTTPException(404, "File not found")
     return FileResponse(path, media_type="image/png")
 
@@ -120,7 +118,7 @@ def download_zip(run_id: str, background: BackgroundTasks):
     # PNGs are already compressed: store them as they are.
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as archive:
         for path in sorted(folder.iterdir()):
-            if FILE_RE.match(path.name):
+            if runs.FILE_RE.match(path.name):
                 archive.write(path, f"{run_id}/{path.name}")
     tmp.close()
     background.add_task(os.unlink, tmp.name)

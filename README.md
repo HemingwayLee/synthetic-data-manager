@@ -4,17 +4,43 @@ Several webapps behind one nginx (HTTPS on 443) sharing one PostgreSQL container
 frontend plus a FastAPI backend, each on its own port, each with its own database. Everything hot reloads.
 
 ```
-browser ── https://host:443 ──► nginx ─┬─ /                     landing page (nginx/html)
-                                       ├─ /claudeGenData/api/*  ► claudegendata-backend:8101  (/api/*) ─┐
-                                       ├─ /claudeGenData/*      ► claudegendata-frontend:5101           ├─► db:5432  database claudeGenData
-                                       ├─ /app2/api/*           ► app2-backend:8102  (/api/*)          ─┤
-                                       └─ /app2/*               ► app2-frontend:5102                    └─► db:5432  database app2
+browser ── https://host:443 ──► nginx ─┬─ /                        landing page (nginx/html)
+                                       ├─ /claudeGenData/api/*     ► claudegendata-backend:8101     (/api/*) ─┐
+                                       ├─ /claudeGenData/*         ► claudegendata-frontend:5101             ├─► db:5432  database claudeGenData
+                                       ├─ /randomHtmlTables/api/*  ► randomhtmltables-backend:8102  (/api/*) ─┤
+                                       └─ /randomHtmlTables/*      ► randomhtmltables-frontend:5102          └─► db:5432  database randomHtmlTables
 ```
 
 | App | What it is |
 | --- | --- |
 | [claudeGenData](apps/claudeGenData/README.md) | Claude Code chat GUI plus the Biz Doc generator (synthetic Japanese business documents as PDF + labels) |
-| [app2](apps/app2/README.md) | random-table2image: random synthetic table images, each with a random-rectangle inpainting mask, for LaMa training |
+| [randomHtmlTables](apps/randomHtmlTables/README.md) | Random synthetic table images, each with a random-rectangle inpainting mask, for LaMa training |
+
+## Batch archives (for other systems)
+
+Every finished batch, a claudeGenData **Batch Generation** or a randomHtmlTables run, is also packed with all its data and
+labels into one `<unix seconds>.tar.gz` (e.g. `1794898711.tar.gz`). The timestamp is when the batch finished, and
+names stay unique: two batches finishing in the same second get consecutive numbers. Each archive unpacks into
+`<timestamp>/` with a `manifest.json` that describes the batch and its files. Both apps serve their archives with
+the same API:
+
+| Method | Path | |
+| --- | --- | --- |
+| GET | `/<app>/api/exports?since=<ts>` | Archives, newest first: `name`, `timestamp`, `bytes`, `files`, `md5`, `sha256`. `since` keeps only newer ones, for polling |
+| GET | `/<app>/api/exports/<ts>` | The same plus the archive's `manifest` |
+| GET | `/<app>/api/exports/<ts>.tar.gz` | The archive |
+| DELETE | `/<app>/api/exports/<ts>` | Remove it |
+
+```bash
+curl -k https://localhost/randomHtmlTables/api/exports
+curl -k -O https://localhost/randomHtmlTables/api/exports/1794898711.tar.gz
+```
+
+From another Docker container on the same machine, call the backend directly over plain HTTP
+(`http://host.docker.internal:8101/api/exports` or `:8102`) to skip the self-signed certificate. Archives are
+written to `apps/claudeGenData/data/exports/` and `apps/randomHtmlTables/output/exports/`; the code is `app/exports.py` (each
+app keeps its own copy). The API has no login, like the rest of the stack, so on a server put it behind
+authentication.
 
 ## Run
 
@@ -31,9 +57,9 @@ defaults.
 | Landing page   | https://localhost/                    |
 | claudeGenData  | https://localhost/claudeGenData/      |
 | claudeGenData API docs | https://localhost/claudeGenData/api/docs |
-| App 2 (random-table2image) | https://localhost/app2/  |
-| App 2 API docs | https://localhost/app2/api/docs       |
-| Postgres       | localhost:5432 (postgres/postgres; claudeGenData/claudeGenData → db claudeGenData; app2/app2 → db app2) |
+| randomHtmlTables | https://localhost/randomHtmlTables/  |
+| randomHtmlTables API docs | https://localhost/randomHtmlTables/api/docs       |
+| Postgres       | localhost:5432 (postgres/postgres; claudeGenData/claudeGenData → db claudeGenData; randomHtmlTables/randomHtmlTables → db randomHtmlTables) |
 | pgweb (optional, see below) | http://localhost:8081, or https://localhost/pgweb/ with `PGWEB_VIA_HTTPS=true` |
 
 http://localhost redirects to HTTPS. Locally the certificate is self-signed (generated into `nginx/certs/` on first
@@ -41,7 +67,7 @@ http://localhost redirects to HTTPS. Locally the certificate is self-signed (gen
 [mkcert](https://github.com/FiloSottile/mkcert) as `nginx/certs/fullchain.pem` and `nginx/certs/privkey.pem`.
 
 For debugging, each service is also published on 127.0.0.1 only: frontends at http://localhost:5101/claudeGenData/ and
-http://localhost:5102/app2/ (Vite proxies their API the same way nginx does), backends at :8101 and :8102.
+http://localhost:5102/randomHtmlTables/ (Vite proxies their API the same way nginx does), backends at :8101 and :8102.
 
 ## Database browser (pgweb, optional)
 
@@ -54,7 +80,7 @@ docker compose -f docker-compose.pgweb.yml up -d     # http://localhost:8081
 docker compose -f docker-compose.pgweb.yml down      # stop pgweb only
 ```
 
-It connects as the Postgres superuser to `postgres`; pick `claudeGenData`/`app2` from its database menu. A small nginx
+It connects as the Postgres superuser to `postgres`; pick `claudeGenData`/`randomHtmlTables` from its database menu. A small nginx
 (`tools/pgweb/`) sits in front of it and adds `custom/json-viewer.js` (pretty-printed JSON in the cell popup). Port
 8081 is bound to 127.0.0.1 because pgweb has no login; on a server, reach it with an SSH tunnel (`ssh -L 8081:localhost:8081`).
 
@@ -69,17 +95,17 @@ pgweb is still attached.
 
 ## How it works
 
-- **Routing is by path.** Each app owns a prefix (`/app2/`). Vite runs with `base: "/app2/"`, so its pages,
-  assets and HMR websocket all live under it and nginx passes them through unchanged. Requests to `/app2/api/*`
+- **Routing is by path.** Each app owns a prefix (`/randomHtmlTables/`). Vite runs with `base: "/randomHtmlTables/"`, so its pages,
+  assets and HMR websocket all live under it and nginx passes them through unchanged. Requests to `/randomHtmlTables/api/*`
   have the prefix stripped and go to the backend as `/api/*`. Config: `nginx/conf.d/default.conf` (TLS, headers,
   websocket upgrade) and one file per app in `nginx/apps/`.
 - **Frontend code must not hard-code `/`.** Build URLs from `import.meta.env.BASE_URL` (see `src/api.js`). If you
   add React Router, use `<BrowserRouter basename={import.meta.env.BASE_URL}>`.
-- **Backends** keep all routes under `/api`. `ROOT_PATH=/app2` only tells FastAPI its public prefix so
-  `/app2/api/docs` loads the right `openapi.json`. Uvicorn trusts nginx's `X-Forwarded-*` headers.
+- **Backends** keep all routes under `/api`. `ROOT_PATH=/randomHtmlTables` only tells FastAPI its public prefix so
+  `/randomHtmlTables/api/docs` loads the right `openapi.json`. Uvicorn trusts nginx's `X-Forwarded-*` headers.
 - **One Postgres, one database per app.** `db-init` runs `db/create-databases.sh` on every `up`: for each
   `name:password` in `APP_DATABASES` it creates a login role and a database it owns (skipping existing ones) and
-  revokes `CONNECT` from everyone else, so app2's credentials can't open claudeGenData's database. Tables are created by
+  revokes `CONNECT` from everyone else, so randomHtmlTables's credentials can't open claudeGenData's database. Tables are created by
   each backend on startup.
 - nginx resolves the app containers per request (Docker DNS), so it starts even if an app is down and keeps
   working after an app container restarts.
@@ -89,7 +115,7 @@ pgweb is still attached.
 ## Add a webapp (e.g. app3)
 
 A new app is a copy of the minimal template app (a Vite + FastAPI items list, kept in git history as the original
-`apps/app2`) plus four small config edits: compose services, a database, an nginx route and a
+`apps/app2` in commit f8f2f98) plus four small config edits: compose services, a database, an nginx route and a
 landing page entry. The example uses `app3` with frontend port **5103** and backend port **8103**. Pick ports that
 no other app uses. Run the commands from the repo root.
 
@@ -110,7 +136,7 @@ fallback base path and ports in `frontend/vite.config.js`. Docker Compose sets t
 
 ### 2. Add the services to `docker-compose.dev.yml`
 
-Add these two services next to the `app2` ones (app2's backend has extra generator settings; app3 needs only these):
+Add these two services next to the `randomHtmlTables` ones (randomHtmlTables's backend has extra generator settings; app3 needs only these):
 
 ```yaml
   # ---------------------------------------------------------------- app3
@@ -157,7 +183,7 @@ In the same file, add a line to `APP_DATABASES` under `db-init`:
 ```yaml
       APP_DATABASES: >-
         claudeGenData:${CLAUDEGENDATA_DB_PASSWORD:-claudeGenData}
-        app2:${APP2_DB_PASSWORD:-app2}
+        randomHtmlTables:${RANDOMHTMLTABLES_DB_PASSWORD:-randomHtmlTables}
         app3:${APP3_DB_PASSWORD:-app3}
 ```
 
@@ -167,7 +193,7 @@ Add `APP3_DB_PASSWORD=app3` to `.env.example` (and to `.env` if you have one). O
 ### 4. Route it in nginx
 
 ```bash
-sed -e 's/app2/app3/g' -e 's/5102/5103/g' -e 's/8102/8103/g' nginx/apps/app2.conf > nginx/apps/app3.conf
+git show f8f2f98:nginx/apps/app2.conf | sed -e 's/app2/app3/g' -e 's/5102/5103/g' -e 's/8102/8103/g' > nginx/apps/app3.conf
 ```
 
 This sends `/app3/api/*` to `app3-backend:8103` with the `/app3` prefix removed, and everything else under `/app3/`
@@ -180,7 +206,7 @@ In `nginx/html/index.html`, add an entry to `APPS`. It gets a card with frontend
 ```js
 const APPS = [
   { name: "claudeGenData", path: "/claudeGenData/", kind: "webapp" },
-  { name: "App 2", path: "/app2/", kind: "webapp" },
+  { name: "randomHtmlTables", path: "/randomHtmlTables/", kind: "webapp" },
   { name: "App 3", path: "/app3/", kind: "webapp" },
   { name: "pgweb", path: "/pgweb/", kind: "pgweb" },
 ];

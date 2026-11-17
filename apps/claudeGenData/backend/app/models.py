@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -39,12 +39,30 @@ class Message(Base):
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
 
 
+class BizDocBatch(Base):
+    """Documents queued together by Batch Generation; archived once all of them finish (see bizdoc/batches.py)."""
+
+    __tablename__ = "bizdoc_batches"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    doc_type: Mapped[str] = mapped_column(String(50))
+    count: Mapped[int]
+    status: Mapped[str] = mapped_column(String(20), default="generating")  # generating | archiving | done | empty | failed
+    # Timestamp of the batch's archive, exports/<export>.tar.gz.
+    export: Mapped[int | None] = mapped_column(BigInteger)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class GeneratedDocument(Base):
     __tablename__ = "generated_documents"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     doc_type: Mapped[str] = mapped_column(String(50), index=True)
     status: Mapped[str] = mapped_column(String(20), default="queued")  # queued | running | done | failed | cancelled
+    # Set for documents queued by Batch Generation. Added to existing databases by bizdoc.batches.migrate().
+    batch_id: Mapped[int | None] = mapped_column(ForeignKey("bizdoc_batches.id", ondelete="SET NULL"), index=True)
     model: Mapped[str] = mapped_column(String(100))
     # Settings with every "random" choice resolved, i.e. what this document was generated from.
     settings: Mapped[dict[str, Any]] = mapped_column(JSON)

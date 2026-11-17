@@ -1,5 +1,5 @@
 {
-  "name": "random-table2image",
+  "name": "random-html-tables",
   "private": true,
   "description": "Generates synthetic table images and random-rectangle masks for LaMa training.",
   "dependencies": {

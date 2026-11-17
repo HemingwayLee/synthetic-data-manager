@@ -1,4 +1,4 @@
-// import.meta.env.BASE_URL is Vite's `base` ("/app2/"), so calls go to /app2/api/..., which nginx (or the Vite
+// import.meta.env.BASE_URL is Vite's `base` ("/randomHtmlTables/"), so calls go to /randomHtmlTables/api/..., which nginx (or the Vite
 // proxy) forwards to this app's backend. Always build URLs from it rather than starting with "/api".
 const API = `${import.meta.env.BASE_URL}api`;
 

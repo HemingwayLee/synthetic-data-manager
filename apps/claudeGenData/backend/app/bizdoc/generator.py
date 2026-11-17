@@ -15,6 +15,7 @@ from weasyprint import HTML
 from weasyprint.urls import URLFetcher
 
 from app import models
+from app.bizdoc import batches
 from app.bizdoc.schema import RANDOM, find_doc_type
 from app.claude import ensure_credentials
 from app.config import settings
@@ -268,8 +269,19 @@ async def _generate(doc_id: int, doc_type_id: str, model: str, resolved: dict[st
             _update(doc_id, status="failed", error=str(exc)[:2000], finished_at=datetime.now(timezone.utc))
 
 
+async def _generate_and_finish(batch_id: int | None, *args: Any) -> None:
+    try:
+        await _generate(*args)
+    finally:
+        # Whatever happened to this document (done, failed, cancelled while queued), its batch may be complete now.
+        if batch_id is not None:
+            await asyncio.to_thread(batches.finish_if_complete, batch_id)
+
+
 def start_generation(doc: models.GeneratedDocument) -> None:
-    task = asyncio.create_task(_generate(doc.id, doc.doc_type, doc.model, doc.settings, document_dir(doc)))
+    task = asyncio.create_task(
+        _generate_and_finish(doc.batch_id, doc.id, doc.doc_type, doc.model, doc.settings, document_dir(doc))
+    )
     _tasks.add(task)  # keep a reference so the task isn't garbage-collected mid-run
     task.add_done_callback(_tasks.discard)
 

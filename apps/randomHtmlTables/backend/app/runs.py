@@ -14,11 +14,13 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app import exports
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 RUN_ID_RE = re.compile(r"^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$")
+FILE_RE = re.compile(r"^table_[0-9]+(_mask001)?\.png$")
 SEED_RE = re.compile(r"\(seed (\d+)\)")
 MASK_SUFFIX = "_mask001.png"
 LOG_LIMIT = 20_000
@@ -104,6 +106,7 @@ def create(count: int, seed: int | None) -> dict:
         "started_at": None,
         "finished_at": None,
         "returncode": None,
+        "export": None,  # timestamp of the run's archive, see app/exports.py
         "log": "",
     }
     _save(record)
@@ -140,8 +143,17 @@ async def _execute(record: dict) -> None:
             # Without a given seed, generate.sh picks one and prints it: keep it so the run can be reproduced.
             if record["seed"] is None and (match := SEED_RE.search(log)):
                 record["seed"] = int(match.group(1))
-            if record["status"] != "cancelled":
-                record["status"] = "done" if proc.returncode == 0 else "error"
+            if record["status"] == "cancelled" or record.get("deleted"):
+                return
+            if proc.returncode != 0:
+                record["status"] = "error"
+                return
+            # Still "running" while the archive is written, so the run turns "done" only once it can be downloaded.
+            entry = await asyncio.to_thread(_archive, record)
+            if record["status"] == "cancelled" or record.get("deleted"):
+                exports.delete(entry["timestamp"])  # cancelled or deleted while archiving
+                return
+            record.update(status="done", export=entry["timestamp"])
     except Exception as exc:  # noqa: BLE001 - recorded on the run instead of lost in a background task
         logger.exception("Run %s failed", run_id)
         record.update(status="error", log=f"{record['log']}\n{exc}".strip())
@@ -152,6 +164,24 @@ async def _execute(record: dict) -> None:
         if not record.get("deleted"):
             record["finished_at"] = record["finished_at"] or _now()
             _save(record)
+
+
+def _archive(record: dict) -> dict:
+    """Pack a finished run's image + mask pairs into exports/<unix seconds>.tar.gz."""
+    folder = run_dir(record["id"])
+    files = sorted(p for p in folder.iterdir() if FILE_RE.match(p.name)) if folder.is_dir() else []
+    pairs = pair_names(record["id"])
+    manifest = {
+        "app": "randomHtmlTables",
+        "kind": "table-inpainting",
+        "description": "Table images with inpainting masks for LaMa: <name>.png and its mask <name>_mask001.png "
+        "(same size; white = region to inpaint).",
+        "run_id": record["id"],
+        "seed": record["seed"],
+        "count": len(pairs),
+        "pairs": [{"image": f"{name}.png", "mask": f"{name}{MASK_SUFFIX}"} for name in pairs],
+    }
+    return exports.write_archive([(p, p.name) for p in files], manifest)
 
 
 def cancel(run_id: str) -> dict | None:

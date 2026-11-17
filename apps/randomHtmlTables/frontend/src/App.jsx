@@ -51,7 +51,7 @@ export default function App() {
       <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Toolbar variant="dense" sx={{ gap: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
-            random-table2image
+            randomHtmlTables
           </Typography>
           <ThemeToggle />
         </Toolbar>

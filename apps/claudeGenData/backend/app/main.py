@@ -8,7 +8,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app import models, schemas
+from app import exports, models, schemas
+from app.bizdoc import batches as bizdoc_batches
 from app.bizdoc import generator as bizdoc_generator
 from app.bizdoc.routes import router as bizdoc_router
 from app.claude import MODELS, run_turn
@@ -22,7 +23,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(_: FastAPI):
     # Dev convenience: create tables on startup. Swap for Alembic migrations later.
     Base.metadata.create_all(bind=engine)
+    bizdoc_batches.migrate()
     bizdoc_generator.fail_interrupted_jobs()
+    bizdoc_batches.finish_interrupted()
     yield
 
 
@@ -45,6 +48,7 @@ app.add_middleware(
 )
 
 app.include_router(bizdoc_router)
+app.include_router(exports.router)
 
 
 def _get_conversation(db: Session, conversation_id: int) -> models.Conversation:

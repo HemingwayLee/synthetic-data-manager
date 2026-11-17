@@ -230,6 +230,6 @@ apps/claudeGenData/workspace/*
 !apps/claudeGenData/workspace/.gitkeep
 apps/claudeGenData/data/
 
-# app2 (random-table2image): generated datasets
-apps/app2/output/*
-!apps/app2/output/.gitkeep
+# randomHtmlTables: generated datasets
+apps/randomHtmlTables/output/*
+!apps/randomHtmlTables/output/.gitkeep

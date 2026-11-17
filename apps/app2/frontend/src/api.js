@@ -8,6 +8,7 @@ async function request(path, options = {}) {
     ...options,
   });
   if (!res.ok) {
+    // Surface FastAPI's {"detail": ...} message when there is one.
     const body = await res.json().catch(() => null);
     const detail = typeof body?.detail === "string" ? body.detail : body?.detail?.[0]?.msg;
     throw new Error(detail || `${res.status} ${res.statusText}`);
@@ -16,7 +17,15 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  health: () => request("/health"),
-  listItems: () => request("/items"),
-  createItem: (name) => request("/items", { method: "POST", body: JSON.stringify({ name }) }),
+  config: () => request("/config"),
+  listRuns: () => request("/runs"),
+  getRun: (id) => request(`/runs/${id}`),
+  createRun: (count, seed) =>
+    request("/runs", { method: "POST", body: JSON.stringify({ count, seed }) }),
+  cancelRun: (id) => request(`/runs/${id}/cancel`, { method: "POST" }),
+  deleteRun: (id) => request(`/runs/${id}`, { method: "DELETE" }),
+  listPairs: (id, offset, limit) => request(`/runs/${id}/pairs?offset=${offset}&limit=${limit}`),
 };
+
+export const fileUrl = (id, name) => `${API}/runs/${id}/files/${name}`;
+export const zipUrl = (id) => `${API}/runs/${id}/zip`;

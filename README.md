@@ -14,7 +14,7 @@ browser ── https://host:443 ──► nginx ─┬─ /                     
 | App | What it is |
 | --- | --- |
 | [claudeGenData](apps/claudeGenData/README.md) | Claude Code chat GUI plus the Biz Doc generator (synthetic Japanese business documents as PDF + labels) |
-| app2 | Minimal template app (items list); copy it to start a new app |
+| [app2](apps/app2/README.md) | random-table2image: random synthetic table images, each with a random-rectangle inpainting mask, for LaMa training |
 
 ## Run
 
@@ -31,7 +31,7 @@ defaults.
 | Landing page   | https://localhost/                    |
 | claudeGenData  | https://localhost/claudeGenData/      |
 | claudeGenData API docs | https://localhost/claudeGenData/api/docs |
-| App 2          | https://localhost/app2/               |
+| App 2 (random-table2image) | https://localhost/app2/  |
 | App 2 API docs | https://localhost/app2/api/docs       |
 | Postgres       | localhost:5432 (postgres/postgres; claudeGenData/claudeGenData → db claudeGenData; app2/app2 → db app2) |
 | pgweb (optional, see below) | http://localhost:8081, or https://localhost/pgweb/ with `PGWEB_VIA_HTTPS=true` |
@@ -88,14 +88,15 @@ pgweb is still attached.
 
 ## Add a webapp (e.g. app3)
 
-A new app is a copy of `apps/app2` (the minimal template) plus four small config edits: compose services, a database, an nginx route and a
+A new app is a copy of the minimal template app (a Vite + FastAPI items list, kept in git history as the original
+`apps/app2`) plus four small config edits: compose services, a database, an nginx route and a
 landing page entry. The example uses `app3` with frontend port **5103** and backend port **8103**. Pick ports that
 no other app uses. Run the commands from the repo root.
 
 ### 1. Copy the code
 
 ```bash
-rsync -a --exclude node_modules apps/app2/ apps/app3/
+mkdir -p apps/app3 && git archive f8f2f98 apps/app2 | tar -x --strip-components=2 -C apps/app3
 grep -rlE 'app2|App 2|5102|8102' apps/app3 | xargs perl -pi -e 's/app2/app3/g; s/App 2/App 3/g; s/5102/5103/g; s/8102/8103/g'
 ```
 
@@ -109,7 +110,7 @@ fallback base path and ports in `frontend/vite.config.js`. Docker Compose sets t
 
 ### 2. Add the services to `docker-compose.dev.yml`
 
-Add these two services next to the `app2` ones. Only the names, ports and paths differ from app2:
+Add these two services next to the `app2` ones (app2's backend has extra generator settings; app3 needs only these):
 
 ```yaml
   # ---------------------------------------------------------------- app3

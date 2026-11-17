@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Random Table2Image</title>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 2rem;
+    background: #f4f5f7;
+    color: #1a1a1a;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    margin: 0 0 1.5rem;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0.25rem;
+    border-bottom: 2px solid #d7d9dd;
+    margin-bottom: 1.5rem;
+  }
+
+  .tab-button {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 0.6rem 1.4rem;
+    font-size: 1rem;
+    cursor: pointer;
+    color: #555;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .tab-button:hover {
+    color: #111;
+  }
+
+  .tab-button.active {
+    color: #2f6fed;
+    border-bottom-color: #2f6fed;
+    font-weight: 600;
+  }
+
+  .tab-panel {
+    display: none;
+  }
+
+  .tab-panel.active {
+    display: block;
+  }
+
+  #generate-btn {
+    appearance: none;
+    border: none;
+    background: #2f6fed;
+    color: #fff;
+    padding: 0.6rem 1.4rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 1.5rem;
+  }
+
+  #generate-btn:hover {
+    background: #2559c7;
+  }
+
+  #save-btn {
+    appearance: none;
+    border: none;
+    background: #2e9e5b;
+    color: #fff;
+    padding: 0.6rem 1.4rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 1.5rem;
+    margin-left: 0.6rem;
+  }
+
+  #save-btn:hover {
+    background: #24803f;
+  }
+
+  #save-btn:disabled {
+    background: #9db8a9;
+    cursor: not-allowed;
+  }
+
+  #table-container {
+    overflow-x: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  #table-container canvas {
+    display: block;
+  }
+
+  .seed-label {
+    margin-left: 0.6rem;
+    font-size: 1rem;
+  }
+
+  #seed-input {
+    width: 9rem;
+    padding: 0.5rem 0.6rem;
+    font-size: 1rem;
+    border: 1px solid #c4c7cc;
+    border-radius: 6px;
+  }
+
+  #seed-used {
+    margin-left: 0.6rem;
+    color: #555;
+  }
+
+  .placeholder {
+    color: #777;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Random Table2Image</h1>
+
+  <div class="tabs">
+    <button class="tab-button active" data-tab="table">Table</button>
+    <button class="tab-button" data-tab="layout">Layout</button>
+  </div>
+
+  <section id="table" class="tab-panel active">
+    <button id="generate-btn">Generate</button>
+    <button id="save-btn" disabled>Save</button>
+    <label class="seed-label">Seed
+      <input id="seed-input" type="text" inputmode="numeric" placeholder="random">
+    </label>
+    <span id="seed-used"></span>
+    <div id="table-container"></div>
+  </section>
+
+  <section id="layout" class="tab-panel">
+    <p class="placeholder">Layout (coming soon)</p>
+  </section>
+
+  <script src="table_generator.js"></script>
+  <script src="mask_generator.js"></script>
+  <script>
+    // --- Tab switching ---
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        tabButtons.forEach(b => b.classList.remove('active'));
+        tabPanels.forEach(p => p.classList.remove('active'));
+        button.classList.add('active');
+        document.getElementById(button.dataset.tab).classList.add('active');
+      });
+    });
+
+    // --- Random table generation ---
+    // The algorithm lives in table_generator.js / mask_generator.js (shared with
+    // generate.sh). A seed starts the same random sequence generate.sh uses, so
+    // the k-th Generate click shows table_<k-1>.png and its mask from
+    // `generate.sh <N> <dir> <seed>`. Editing the seed restarts the sequence.
+
+    // The running sequence: { seed, rng, index } of the next image, or null to start over.
+    let sequence = null;
+    // The most recently generated pair, used by saveTable().
+    let current = null;
+
+    function rgbaToCanvas({ width, height, data }) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const pixels = new Uint8ClampedArray(data.buffer, data.byteOffset, data.length);
+      canvas.getContext('2d').putImageData(new ImageData(pixels, width, height), 0, 0);
+      return canvas;
+    }
+
+    function startSequence() {
+      const seedInput = document.getElementById('seed-input');
+      const seedText = seedInput.value.trim();
+      if (seedText !== '' && !/^[0-9]+$/.test(seedText)) {
+        alert('Seed must be a non-negative integer (or empty for a random seed).');
+        return null;
+      }
+      // Same mod-2^32 reduction as generate_dataset.js.
+      const seed = seedText !== ''
+        ? Number(BigInt(seedText) % 4294967296n)
+        : Math.floor(Math.random() * 4294967296);
+      // Show a randomly picked seed so it can be copied; setting .value doesn't
+      // fire 'input', so this doesn't restart the sequence.
+      if (seedText === '') seedInput.value = String(seed);
+      return { seed, rng: mulberry32(seed), index: 0 };
+    }
+
+    function generateTable() {
+      if (!sequence) sequence = startSequence();
+      if (!sequence) return;
+
+      // Same draw order as generate_dataset.js: table, then its mask. Swap in the
+      // sequence's PRNG only while generating, then restore it.
+      const originalRandom = Math.random;
+      Math.random = sequence.rng;
+      let image, mask;
+      try {
+        image = rasterizeToRGBA(buildTable());
+        mask = generateMaskRGBA(image.width, image.height);
+      } finally {
+        Math.random = originalRandom;
+      }
+
+      const base = `table_${String(sequence.index).padStart(5, '0')}`;
+      current = { base, imageCanvas: rgbaToCanvas(image), maskCanvas: rgbaToCanvas(mask) };
+      sequence.index++;
+
+      const container = document.getElementById('table-container');
+      container.innerHTML = '';
+      container.appendChild(current.imageCanvas);
+      container.appendChild(current.maskCanvas);
+
+      document.getElementById('seed-used').textContent = `seed ${sequence.seed} · ${base}`;
+      document.getElementById('save-btn').disabled = false;
+    }
+
+    function downloadCanvas(canvas, filename) {
+      canvas.toBlob((blob) => {
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+        URL.revokeObjectURL(link.href);
+      }, 'image/png');
+    }
+
+    // Saves the pair under generate.sh's file names.
+    function saveTable() {
+      if (!current) return;
+      downloadCanvas(current.imageCanvas, `${current.base}.png`);
+      downloadCanvas(current.maskCanvas, `${current.base}_mask001.png`);
+    }
+
+    document.getElementById('seed-input').addEventListener('input', () => { sequence = null; });
+    document.getElementById('generate-btn').addEventListener('click', generateTable);
+    document.getElementById('save-btn').addEventListener('click', saveTable);
+  </script>
+
+</body>
+</html>
